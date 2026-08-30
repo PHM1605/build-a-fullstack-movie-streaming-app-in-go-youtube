@@ -13,7 +13,7 @@
                 "genre_name": "Fantasy"
             }
         ],
-        "admin_review": "",
+        "admin_review": "This movie was really bad",
         "ranking": {
             "ranking_value": 4,
             "ranking_name": "bad"
