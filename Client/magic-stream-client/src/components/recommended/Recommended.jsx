@@ -1,0 +1,39 @@
+import useAxiosPrivate from "../../hook/useAxiosPrivate";
+import { useState, useEffect } from "react";
+import Movies from "../movies/Movies";
+
+const Recommended = () => {
+  const [movies, setMovies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState();
+  const axiosPrivate = useAxiosPrivate();
+  
+  // call Recommended Movies endpoint to fetch 
+  useEffect(() => {
+    const fetchRecommendedMovies = async () => {
+      setLoading(true);
+      setMessage("");
+      try {
+        const response = await axiosPrivate.get("/recommendedmovies");
+        setMovies(response.data);
+      } catch (error) {
+        console.error("Error fetching recommended movies: ", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRecommendedMovies();
+  }, [])
+  
+  return (
+    <>
+    {loading ? (
+      <h2>Loading...</h2>
+    ) : (
+      <Movies movies={movies} message={message} />
+    )}
+    </>
+  )
+}
+
+export default Recommended;

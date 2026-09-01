@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -15,8 +16,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var userCollection *mongo.Collection = database.OpenCollection("users")
-
 func HashPassword(password string) (string, error) {
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -26,7 +25,7 @@ func HashPassword(password string) (string, error) {
 	return string(hashPassword), nil
 }
 
-func RegisterUser() gin.HandlerFunc {
+func RegisterUser(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// try parsing User info from Request
 		var user models.User
@@ -51,6 +50,7 @@ func RegisterUser() gin.HandlerFunc {
 		defer cancel()
 
 		// make sure Email is unique
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
 		count, err := userCollection.CountDocuments(ctx, bson.M{"email": user.Email})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing user"})
@@ -77,7 +77,7 @@ func RegisterUser() gin.HandlerFunc {
 	}
 }
 
-func LoginUser() gin.HandlerFunc {
+func LoginUser(client *mongo.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// to parse User Login Info from Request
 		var userLogin models.UserLogin
@@ -90,6 +90,7 @@ func LoginUser() gin.HandlerFunc {
 		defer cancel()
 		// Look into DB with User email; parsing info of the logging in User
 		var foundUser models.User
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
 		err := userCollection.FindOne(ctx, bson.M{"email": userLogin.Email}).Decode(&foundUser)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
@@ -108,21 +109,136 @@ func LoginUser() gin.HandlerFunc {
 			return
 		}
 		// update both Tokens to DB
-		err = utils.UpdateAllTokens(foundUser.UserID, token, refreshToken)
+		err = utils.UpdateAllTokens(foundUser.UserID, token, refreshToken, client, c)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update tokens"})
 			return
 		}
+
+		// Safe way to send back Tokens "http-only Cookie"
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:  "access_token",
+			Value: token,
+			Path:  "/",
+			// Domain: "localhost",
+			MaxAge:   86400,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:  "refresh_token",
+			Value: refreshToken,
+			Path:  "/",
+			// Domain: "localhost",
+			MaxAge:   86400,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+
 		// all good => return both to Client
 		c.JSON(http.StatusOK, models.UserResponse{
-			UserID:          foundUser.UserID,
-			FirstName:       foundUser.FirstName,
-			LastName:        foundUser.LastName,
-			Email:           foundUser.Email,
-			Role:            foundUser.Role,
-			Token:           token,
-			RefreshToken:    refreshToken,
+			UserID:    foundUser.UserID,
+			FirstName: foundUser.FirstName,
+			LastName:  foundUser.LastName,
+			Email:     foundUser.Email,
+			Role:      foundUser.Role,
+			// Token:           token, // unsafe
+			// RefreshToken:    refreshToken, // unsafe
 			FavouriteGenres: foundUser.FavouriteGenres,
 		})
+	}
+}
+
+func LogoutHandler(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var UserLogout struct {
+			UserId string `json:"user_id"`
+		}
+		// Parse info of which User is logging out (from Request)
+		err := c.ShouldBindJSON(&UserLogout)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+			return
+		}
+
+		fmt.Println("User ID from Logout request: ", UserLogout.UserId)
+
+		// Clear tokens in the DB
+		err = utils.UpdateAllTokens(UserLogout.UserId, "", "", client, c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error logging out"})
+			return
+		}
+
+		// Clear the Request's Cookies
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:  "access_token",
+			Value: "",
+			Path:  "/",
+			// Domain: "localhost",
+			MaxAge:   -1,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     "refresh_token",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteNoneMode,
+		})
+
+		// All good
+		c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+	}
+}
+
+func RefreshTokenHandler(client *mongo.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// set Timeout for Request
+		var ctx, cancel = context.WithTimeout(c, 100*time.Second)
+		defer cancel()
+
+		refreshToken, err := c.Cookie("refresh_token")
+		if err != nil {
+			fmt.Println("error", err.Error())
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unable to return refresh token"})
+			return
+		}
+
+		claim, err := utils.ValidateRefreshToken(refreshToken)
+		if err != nil || claim == nil {
+			fmt.Println("error", err.Error())
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
+		}
+
+		// Compare (not yet expire) Refresh Token with what being stored in DB
+		var userCollection *mongo.Collection = database.OpenCollection("users", client)
+		// Parse User from DB
+		var user models.User
+		err = userCollection.FindOne(ctx, bson.D{{Key: "user_id", Value: claim.UserId}}).Decode(&user)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			return
+		}
+
+		// Issue new Access Token and Refresh Token
+		newToken, newRefreshToken, _ := utils.GenerateAllTokens(user.Email, user.FirstName, user.LastName, user.Role, user.UserID)
+		err = utils.UpdateAllTokens(user.UserID, newToken, newRefreshToken, client, c)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error updating tokens"})
+			return
+		}
+		// Access Token expires in 24 hours
+		c.SetCookie("access_token", newToken, 86400, "/", "localhost", true, true)
+		// Refresh Token expires in 1 week
+		c.SetCookie("refresh_token", newRefreshToken, 604800, "/", "localhost", true, true)
+
+		c.JSON(http.StatusOK, gin.H{"message": "Tokens refreshed"})
 	}
 }

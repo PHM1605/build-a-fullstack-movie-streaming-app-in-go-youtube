@@ -24,7 +24,6 @@ type SignedDetails struct {
 
 var SECRET_KEY string = os.Getenv("SECRET_KEY")
 var SECRET_REFRESH_KEY string = os.Getenv("SECRET_REFRESH_KEY")
-var userCollection *mongo.Collection = database.OpenCollection("users")
 
 // Generate BOTH Access Token & Refresh Token
 func GenerateAllTokens(email, firstName, lastName, role, userId string) (string, string, error) {
@@ -70,9 +69,9 @@ func GenerateAllTokens(email, firstName, lastName, role, userId string) (string,
 }
 
 // Update Access & Refresh Token information from DB (updating "users" Collection)
-func UpdateAllTokens(userId, token, refreshToken string) (err error) {
+func UpdateAllTokens(userId, token, refreshToken string, client *mongo.Client, c *gin.Context) (err error) {
 	// Setup Timeout for Request
-	var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+	var ctx, cancel = context.WithTimeout(c, 100*time.Second)
 	defer cancel()
 
 	updatedAt, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
@@ -84,6 +83,7 @@ func UpdateAllTokens(userId, token, refreshToken string) (err error) {
 		},
 	}
 	// bson.M{} inside means "filtering"
+	var userCollection *mongo.Collection = database.OpenCollection("users", client)
 	_, err = userCollection.UpdateOne(ctx, bson.M{"user_id": userId}, updateData)
 	if err != nil {
 		return err
@@ -94,15 +94,23 @@ func UpdateAllTokens(userId, token, refreshToken string) (err error) {
 
 // Get Access Token String from Request
 func GetAccessToken(c *gin.Context) (string, error) {
-	authHeader := c.Request.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", errors.New("Authorization header is required")
+	// // Unsafe way: without Cookies
+	// authHeader := c.Request.Header.Get("Authorization")
+	// if authHeader == "" {
+	// 	return "", errors.New("Authorization header is required")
+	// }
+	// // Header has an Authorization field e.g. "Bearer xxxyyy"
+	// tokenString := authHeader[len("Bearer "):]
+	// if tokenString == "" {
+	// 	return "", errors.New("Bearer token is required")
+	// }
+
+	// Safe way with Cookie
+	tokenString, err := c.Cookie("access_token")
+	if err != nil {
+		return "", err
 	}
-	// Header has an Authorization field e.g. "Bearer xxxyyy"
-	tokenString := authHeader[len("Bearer "):]
-	if tokenString == "" {
-		return "", errors.New("Bearer token is required")
-	}
+
 	// token good
 	return tokenString, nil
 }
@@ -157,4 +165,25 @@ func GetRoleFromContext(c *gin.Context) (string, error) {
 	}
 	// all good
 	return memberRole, nil
+}
+
+func ValidateRefreshToken(tokenString string) (*SignedDetails, error) {
+	claims := &SignedDetails{}
+	// Parse information into "claims" (check Signature with the Callback)
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(SECRET_REFRESH_KEY), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Check if Token was created with HMAC method
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, err
+	}
+	// Check if claims expired or not
+	if claims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, errors.New("refresh token has expired")
+	}
+
+	return claims, nil
 }

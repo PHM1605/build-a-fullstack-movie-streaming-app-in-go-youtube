@@ -25,3 +25,11 @@ In the place of our `go.mod` i.e. `MagicStreamMoviesServer` folder:
 - Install `bcrypt` to hass password: `go get golang.org/x/crypto/bcrypt`
 - Install JWT library: `go get github.com/golang-jwt/jwt/v5`
 - Install LangChain-Go: `go get github.com/tmc/langchaingo/llms/openai`
+- Install CORS: `go get github.com/gin-contrib/cors`
+
+## Install Frontend: 
+Initialization with `vite`: `npm create vite@latest`\
+Use `Bootstrap` for styling: `npm i react-bootstrap bootstrap`\
+Include this line in `main.jsx`:  `import 'bootstrap/dist/css/bootstrap.min.css';`\
+Install `axios`: `npm i axios`\
+Install `react-router-dom`: `npm i react-router-dom`\
