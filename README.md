@@ -33,3 +33,14 @@ Use `Bootstrap` for styling: `npm i react-bootstrap bootstrap`\
 Include this line in `main.jsx`:  `import 'bootstrap/dist/css/bootstrap.min.css';`\
 Install `axios`: `npm i axios`\
 Install `react-router-dom`: `npm i react-router-dom`\
+Install `react-player` for streaming: `npm i react-player@2.16.0`\
+Install for icons: 
+```sh
+npm i @fortawesome/free-solid-svg-icons
+npm i @fortawesome/react-fontawesome
+```
+
+# DevOps
+- For MongoDB: `MongoDB Atlas`
+- For Backend: `Render`
+- For Client: `Vercell`
