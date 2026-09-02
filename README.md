@@ -41,7 +41,6 @@ npm i @fortawesome/react-fontawesome
 ```
 
 # DevOps
-- For Client: `Vercell`
 
 ## For MongoDB: `MongoDB Atlas`
 Install tools for MongoDB devops: `brew install mongodb-database-tools`\
@@ -49,6 +48,16 @@ Check installation of `mongodump` with `mongodump --version`\
 Open `Compass` and check local URL of our local DB: `localhost:27017`\
 Command line typing: `mongodump --uri="mongodb://localhost:27017/magic-stream-movies" --out=./dump` to create a copy of our local DB.\
 To push `dump` to cluster: `mongodbrestore --uri="<MONGODB_URI>"` 
+
+## For Client: `Vercel`
+Login with Github credentials.\
+Choose `Client/magic-stream-client` as `root`.\
+Type Build Command: `npm run build` => to `dist/`\
+
+Set Environment Variable:
+```sh
+VITE_API_BASE_URL: https://build-a-fullstack-movie-streaming-app-in.onrender.com/
+```
 
 ## For backend: `Render`
 Go to Render website.\
@@ -62,4 +71,9 @@ Setup for deploying our Go backend:
   - `DATABASE_NAME`: `magic-stream-movies`
   - `MONGODB_URI`: `<atlas-credentials.env>`
   - Other .env variables: `SECRET_KEY`, `SECRET_REFRESH_KEY`, `BASE_PROMPT_TEMPLATE`, `OPENAI_API_KEY`, `RECOMMENDED_MOVIE_LIMIT`
-  - `ALLOWED_ORIGINS`: `<in Vercell platform>`
+  - `ALLOWED_ORIGINS` as in Vercel platform: `https://build-a-fullstack-movie-streaming-a.vercel.app`
+  
+After deploy, copy and save the public URL: `https://build-a-fullstack-movie-streaming-app-in.onrender.com/`
+  
+# Done
+Now our app is available at: `https://build-a-fullstack-movie-streaming-a.vercel.app`
