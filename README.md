@@ -44,3 +44,9 @@ npm i @fortawesome/react-fontawesome
 - For MongoDB: `MongoDB Atlas`
 - For Backend: `Render`
 - For Client: `Vercell`
+
+Install tools for MongoDB devops: `brew install mongodb-database-tools`\
+Check installation of `mongodump` with `mongodump --version`\
+Open `Compass` and check local URL of our local DB: `localhost:27017`\
+Command line typing: `mongodump --uri="mongodb://localhost:27017/magic-stream-movies" --out=./dump` to create a copy of our local DB.\
+To push `dump` to cluster: `mongodbrestore --uri="<MONGODB_URI>"` 
