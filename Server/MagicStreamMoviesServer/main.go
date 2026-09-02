@@ -76,7 +76,13 @@ func main() {
 	routes.SetupUnprotectedRoutes(router, client)
 	routes.SetupProtectedRoutes(router, client)
 
-	if err := router.Run(":8080"); err != nil {
+	// So that Render can read this variable
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	if err := router.Run(":" + port); err != nil {
 		fmt.Println("Failed to start server", err)
 	}
 }

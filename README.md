@@ -41,12 +41,25 @@ npm i @fortawesome/react-fontawesome
 ```
 
 # DevOps
-- For MongoDB: `MongoDB Atlas`
-- For Backend: `Render`
 - For Client: `Vercell`
 
+## For MongoDB: `MongoDB Atlas`
 Install tools for MongoDB devops: `brew install mongodb-database-tools`\
 Check installation of `mongodump` with `mongodump --version`\
 Open `Compass` and check local URL of our local DB: `localhost:27017`\
 Command line typing: `mongodump --uri="mongodb://localhost:27017/magic-stream-movies" --out=./dump` to create a copy of our local DB.\
 To push `dump` to cluster: `mongodbrestore --uri="<MONGODB_URI>"` 
+
+## For backend: `Render`
+Go to Render website.\
+Sign up/ Sign in an account with Github.\
+Setup for deploying our Go backend:
+- choose branch `main`
+- type Root Directory `Server/MagicStreamMoviesServer`
+- type Build Command: `go build -o app`
+- type Start Command: `./app`
+- add Environment variables
+  - `DATABASE_NAME`: `magic-stream-movies`
+  - `MONGODB_URI`: `<atlas-credentials.env>`
+  - Other .env variables: `SECRET_KEY`, `SECRET_REFRESH_KEY`, `BASE_PROMPT_TEMPLATE`, `OPENAI_API_KEY`, `RECOMMENDED_MOVIE_LIMIT`
+  - `ALLOWED_ORIGINS`: `<in Vercell platform>`
